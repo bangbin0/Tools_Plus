@@ -32,6 +32,12 @@ namespace Tools
             InitializeComponent();
             LoadRegexFavorites();
             ZZCHeck.CheckedChanged += ZZCHeck_CheckedChanged;
+            
+            // 添加事件绑定
+            Replacetype.ValueChanged += Replacetype_ValueChanged;
+            P2Sun.CheckedChanged += P2Sun_CheckedChanged;
+            P2_FindText.TextChanged += P2_FindText_TextChanged;
+            ThText.TextChanged += ThText_TextChanged;
         }
 
         // 加载收藏的正则表达式
@@ -129,13 +135,47 @@ namespace Tools
         // 添加错误提示方法
         private void ShowCustomErrorTip(string message)
         {
-            MessageBox.Show(message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            try
+            {
+                if (!IsDisposed && IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                    {
+                        Invoke(new Action(() => ShowCustomErrorTip(message)));
+                        return;
+                    }
+                    
+                    MessageBox.Show(this, message, "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch
+            {
+                // 如果出现任何错误，使用最基本的消息框
+                MessageBox.Show(message, "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         // 添加成功提示方法
         private void ShowCustomSuccessTip(string message)
         {
-            MessageBox.Show(message, "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            try
+            {
+                if (!IsDisposed && IsHandleCreated)
+                {
+                    if (InvokeRequired)
+                    {
+                        Invoke(new Action(() => ShowCustomSuccessTip(message)));
+                        return;
+                    }
+                    
+                    MessageBox.Show(this, message, "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch
+            {
+                // 如果出现任何错误，使用最基本的消息框
+                MessageBox.Show(message, "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
 
         #region word2pdf
@@ -144,7 +184,6 @@ namespace Tools
             using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
             {
                 if (folderDialog.ShowDialog() == DialogResult.OK)
-
                 {
                     string selectedPath = folderDialog.SelectedPath;
                     this.folderPath2.Text = selectedPath;
@@ -338,6 +377,152 @@ namespace Tools
 
         #endregion
         #region 批量重名名文件
+        private void Replacetype_ValueChanged(object sender, CheckBoxGroupEventArgs e)
+        {
+            if (!string.IsNullOrEmpty(ChangeText.Text))
+            {
+                // 使用BeginInvoke来避免在事件处理过程中修改集合
+                BeginInvoke(new Action(() =>
+                {
+                    UpdateFileList();
+                }));
+            }
+        }
+
+        private void P2Sun_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(ChangeText.Text))
+            {
+                // 使用BeginInvoke来避免在事件处理过程中修改集合
+                BeginInvoke(new Action(() =>
+                {
+                    UpdateFileList();
+                }));
+            }
+        }
+
+        // 添加一个统一的更新文件列表的方法
+        private void UpdateFileList()
+        {
+            if (string.IsNullOrEmpty(ChangeText.Text))
+            {
+                return;
+            }
+
+            try
+            {
+                // 检查是否选择了文件类型
+                if (Replacetype.SelectedItems.Count == 0)
+                {
+                    ShowCustomErrorTip("请先选择要处理的文件类型");
+                    return;
+                }
+
+                // 检查目录是否存在
+                if (!Directory.Exists(ChangeText.Text))
+                {
+                    ShowCustomErrorTip("所选文件夹不存在");
+                    return;
+                }
+
+                // 复制选中的项目到新列表，避免在遍历过程中修改集合
+                List<string> ReNameTypeList = new List<string>();
+                foreach (var item in Replacetype.SelectedItems)
+                {
+                    ReNameTypeList.Add(item.ToString());
+                }
+
+                // 清空列表
+                P2Logs.ClearRows();
+                ReNameFilesList.Clear();
+
+                // 查找文件
+                ReNameFilesList = FileHelper.FindFiles(ChangeText.Text, ReNameTypeList, P2Sun.Checked);
+
+                if (ReNameFilesList.Count == 0)
+                {
+                    ShowCustomErrorTip($"在 {ChangeText.Text} 中没有找到符合条件的文件");
+                    return;
+                }
+
+                // 更新UI
+                BeginInvoke(new Action(() =>
+                {
+                    foreach (string file in ReNameFilesList)
+                    {
+                        string newFileName = file;
+                        if (!string.IsNullOrEmpty(P2_FindText.Text))
+                        {
+                            try
+                            {
+                                string directory = Path.GetDirectoryName(file);
+                                string fileName = Path.GetFileName(file);
+                                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+                                string fileExtension = Path.GetExtension(fileName);
+                                string newFileNameWithoutExt;
+
+                                if (ZZCHeck.Checked)
+                                {
+                                    // 使用正则表达式替换
+                                    if (StringHelper.IsValidRegex(P2_FindText.Text))
+                                    {
+                                        newFileNameWithoutExt = Regex.Replace(fileNameWithoutExtension, P2_FindText.Text, ThText.Text ?? "");
+                                    }
+                                    else
+                                    {
+                                        newFileNameWithoutExt = fileNameWithoutExtension;
+                                    }
+                                }
+                                else
+                                {
+                                    // 使用普通替换
+                                    newFileNameWithoutExt = fileNameWithoutExtension.Replace(P2_FindText.Text, ThText.Text ?? "");
+                                }
+
+                                newFileName = Path.Combine(directory, newFileNameWithoutExt + fileExtension);
+                            }
+                            catch
+                            {
+                                // 如果替换过程出错，保持原文件名
+                                newFileName = file;
+                            }
+                        }
+
+                        P2Logs.AddRow(file, newFileName, "待处理", Color.White);
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                ShowCustomErrorTip($"更新文件列表时出错: {ex.Message}");
+                ReNameFilesList.Clear();
+                P2Logs.ClearRows();
+            }
+        }
+
+        // 添加P2_FindText和ThText的TextChanged事件处理程序
+        private void P2_FindText_TextChanged(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(ChangeText.Text))
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    UpdateFileList();
+                }));
+            }
+        }
+
+        private void ThText_TextChanged(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(ChangeText.Text))
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    UpdateFileList();
+                }));
+            }
+        }
+
         private void SeachBtn_Click(object sender, EventArgs e)
         {
             using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
@@ -346,6 +531,12 @@ namespace Tools
                 {
                     string selectedPath = folderDialog.SelectedPath;
                     this.ChangeText.Text = selectedPath;
+                    
+                    // 使用BeginInvoke来避免在事件处理过程中修改集合
+                    BeginInvoke(new Action(() =>
+                    {
+                        UpdateFileList();
+                    }));
                 }
             }
         }
@@ -474,7 +665,6 @@ namespace Tools
             using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
             {
                 if (folderDialog.ShowDialog() == DialogResult.OK)
-
                 {
                     string selectedPath = folderDialog.SelectedPath;
                     this.CollectFilesFindfilePath.Text = selectedPath;

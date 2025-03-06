@@ -12,17 +12,17 @@ namespace Tools
         // 字典映射文件类型到扩展名
         private static readonly Dictionary<string, string[]> fileExtensions = new Dictionary<string, string[]>
     {
-        { "DOC", new[] { "*.DOC" } },
-        { "DOCX", new[] { "*.DOCX" } },
-        { "WPS", new[] { "*.WPS" } },
-        { "PDF", new[] { "*.PDF" } },
-        { "XLS", new[] { "*.XLS" } },
-        { "XLSX", new[] { "*.XLSX" } },
-        { "TXT", new[] { "*.TXT" } },
-        { "BAT", new[] { "*.BAT" } },
-        { "PNG", new[] { "*.PNG" } },
-        { "JPEG", new[] { "*.JPEG" } },
-        { "LRMX", new[] { "*.LRMX" } }
+        { "DOC", new[] { "*.doc" } },
+        { "DOCX", new[] { "*.docx" } },
+        { "WPS", new[] { "*.wps" } },
+        { "PDF", new[] { "*.pdf" } },
+        { "XLS", new[] { "*.xls" } },
+        { "XLSX", new[] { "*.xlsx" } },
+        { "TXT", new[] { "*.txt" } },
+        { "BAT", new[] { "*.bat" } },
+        { "PNG", new[] { "*.png" } },
+        { "JPEG", new[] { "*.jpeg", "*.jpg" } },
+        { "LRMX", new[] { "*.lrmx" } }
     };
 
         /// <summary>
@@ -35,25 +35,45 @@ namespace Tools
         {
             if (string.IsNullOrEmpty(directoryPath) || !Directory.Exists(directoryPath))
             {
-                throw new ArgumentException("无效的目录路径", nameof(directoryPath));
+                return new List<string>();
             }
 
             List<string> foundFiles = new List<string>();
 
-            // 遍历所有选中的文件类型
-            foreach (var fileType in fileTypes)
+            try
             {
-                if (fileExtensions.ContainsKey(fileType))
+                var searchOption = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+
+                // 获取目录下的所有文件
+                var allFiles = Directory.GetFiles(directoryPath, "*.*", searchOption);
+
+                // 遍历所有文件，检查是否匹配所选类型
+                foreach (var file in allFiles)
                 {
-                    foreach (var extension in fileExtensions[fileType])
+                    string fileExtension = Path.GetExtension(file).ToLower();
+                    
+                    // 检查文件是否匹配任何选中的类型
+                    foreach (var fileType in fileTypes)
                     {
-                        // 使用 Directory.GetFiles 查找匹配的文件
-                        // 如果 includeSubdirectories 为 true，则递归查找子目录
-                        var searchOption = includeSubdirectories ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-                        var files = Directory.GetFiles(directoryPath, extension, searchOption);
-                        foundFiles.AddRange(files);
+                        if (fileExtensions.ContainsKey(fileType))
+                        {
+                            var validExtensions = fileExtensions[fileType]
+                                .Select(ext => ext.Substring(1).ToLower()) // 去掉*号并转换为小写
+                                .ToList();
+
+                            if (validExtensions.Contains(fileExtension))
+                            {
+                                foundFiles.Add(file);
+                                break; // 找到匹配就跳出内层循环
+                            }
+                        }
                     }
                 }
+            }
+            catch (Exception)
+            {
+                // 发生异常时返回空列表
+                return new List<string>();
             }
 
             return foundFiles;
