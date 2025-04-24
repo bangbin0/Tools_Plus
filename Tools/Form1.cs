@@ -464,7 +464,7 @@ namespace Tools
                                 if (ZZCHeck.Checked)
                                 {
                                     // 使用正则表达式替换
-                                    if (StringHelper.IsValidRegex(P2_FindText.Text))
+                                   if (StringHelper.IsValidRegex(P2_FindText.Text))
                                     {
                                         newFileNameWithoutExt = Regex.Replace(fileNameWithoutExtension, P2_FindText.Text, ThText.Text ?? "");
                                     }
@@ -632,7 +632,7 @@ namespace Tools
 
                                 if (System.IO.File.Exists(newFilePath))
                                 {
-                                    newFilePath = Path.Combine(directory, $"{Path.GetFileNameWithoutExtension(newFileName)}_{Guid.NewGuid()}{Path.GetExtension(newFileName)}");
+                                    newFilePath = Path.Combine(directory,newFileName);
                                 }
 
                                 System.IO.File.Move(wordFile, newFilePath);
