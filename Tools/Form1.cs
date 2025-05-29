@@ -725,22 +725,33 @@ namespace Tools
                 {
                     try
                     {
-                        // 如果目标文件已经存在，则可以根据需要决定如何处理，比如覆盖或者跳过
-                        if (System.IO.File.Exists(sFile))
+                        // 获取源文件名
+                        string fileName = Path.GetFileName(sFile);
+                        // 构建目标文件完整路径
+                        string destFilePath = Path.Combine(CollectFilesSavePath.Text, fileName);
+                        if (System.IO.File.Exists(destFilePath))
                         {
-                            // 例如：跳过文件拷贝（你可以选择覆盖文件等）
-                            CollectFilesLogs.Text += $"文件已存在，跳过拷贝: {sFile}\r\n";
+                            // 使用Invoke跨线程更新UI
+                            this.Invoke((MethodInvoker)delegate {
+                                CollectFilesLogs.Text += $"文件已存在，跳过拷贝: {sFile}\r\n";
+                            });
                         }
                         else
                         {
-                            // 执行文件拷贝操作
-                            System.IO.File.Copy(sFile, CollectFilesSavePath.Text);
-                            CollectFilesLogs.Text += $"文件拷贝成功: {sFile}\r\n";
+                            System.IO.File.Copy(sFile, destFilePath);
+
+                            // 拷贝成功后也需要Invoke
+                            this.Invoke((MethodInvoker)delegate {
+                                CollectFilesLogs.Text += $"文件拷贝成功: {sFile}\r\n";
+                            });
                         }
                     }
                     catch (Exception ex)
                     {
-                        CollectFilesLogs.Text += $"文件替换失败: {sFile},{ex.Message}\r\n";
+                        // 异常信息也需要Invoke
+                        this.Invoke((MethodInvoker)delegate {
+                            CollectFilesLogs.Text += $"文件收集失败: {sFile},{ex.Message}\r\n";
+                        });
                     }
                 });
 
